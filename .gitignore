@@ -8,10 +8,12 @@ __pycache__/
 .env
 .env.local
 
-data/*.sqlite
-data/*.parquet
-data/*.csv
-data/cache/
+# This is a PUBLIC repo. Everything personal stays out of it:
+# the journal, positions, briefs, and any cached market data.
+data/
+!data/.gitkeep
+content/private/
+briefs/
 logs/
 *.log
 
