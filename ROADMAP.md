@@ -102,7 +102,7 @@ Candidates were cloned and run. Full survey and compatibility ratings:
 
 ---
 
-## Phase 1 — The spine: context engine, agents, Ask + Chat
+## Phase 1 — The spine: context engine, agents, Ask + Chat  ✅ shipped 2026-09-06
 
 Goal: `streamlit run app.py` opens a multi-page app with a working Chat page and
 a working context-aware Ask panel on every other page. Later phases only add
@@ -110,24 +110,24 @@ a working context-aware Ask panel on every other page. Later phases only add
 
 **Context engine**
 
-- [ ] `src/ask/context.py` — `AskContext` dataclass: `title`, `facts` (dict),
+- [x] `src/ask/context.py` — `AskContext` dataclass: `title`, `facts` (dict),
       `documents` (list of labelled text blocks), `provider_ids`
-- [ ] `src/ask/providers.py` — provider registry. A provider is
+- [x] `src/ask/providers.py` — provider registry. A provider is
       `id → (label, fn(selection) -> ContextBlock)`. Phase 1 ships two:
       `glossary` and `portfolio` (empty is fine). Later phases register more.
-- [ ] Context budget: providers declare a rough token cost; the assembler drops
+- [x] Context budget: providers declare a rough token cost; the assembler drops
       the lowest-priority blocks when the budget is exceeded and says so in the UI.
       Use `client.messages.count_tokens` to measure, never a tokenizer guess.
 
 **Agents**
 
-- [ ] `config/agents/*.md` — one file per agent, YAML front-matter
+- [x] `config/agents/*.md` — one file per agent, YAML front-matter
       (`name`, `description`, `default_providers`, `effort`) + the system prompt body
-- [ ] `config/agents/_preamble.md` — inherited by every agent: the no-advice rule,
+- [x] `config/agents/_preamble.md` — inherited by every agent: the no-advice rule,
       "ground answers in supplied context, say when a number isn't there", and
       "Jonathan is learning — build the mental model, don't hand over conclusions"
-- [ ] `src/ask/agents.py` — load, validate, hot-reload on file change
-- [ ] Starter roster. Seed the investor personas from `ai-hedge-fund`'s prompts
+- [x] `src/ask/agents.py` — load, validate, hot-reload on file change
+- [x] Starter roster. Seed the investor personas from `ai-hedge-fund`'s prompts
       (MIT — keep the notice), rewritten to explain and question rather than to
       emit a signal. Take its prompt cache too — key on (agent, model, system,
       user) so an unchanged snapshot never pays for a second call:
@@ -141,22 +141,22 @@ a working context-aware Ask panel on every other page. Later phases only add
 
 **Client**
 
-- [ ] `src/ask/client.py` — **read the `claude-api` skill before writing this.**
+- [x] `src/ask/client.py` — **read the `claude-api` skill before writing this.**
       Defaults: `model="claude-opus-5"`, `thinking={"type": "adaptive"}`, streaming via
       `client.messages.stream(...)` + `.get_final_message()`, `max_tokens=64000`.
       Per-agent `output_config={"effort": ...}` — `low` for glossary lookups,
       `high`/`xhigh` for thesis critique.
-- [ ] Prompt caching: preamble + agent prompt + glossary + lesson corpus are the
+- [x] Prompt caching (breakpoint in place; cache_read not yet observed live): preamble + agent prompt + glossary + lesson corpus are the
       stable prefix (`cache_control`); selected context and the question come last.
       Verify `usage.cache_read_input_tokens > 0`.
-- [ ] `ANTHROPIC_API_KEY` in `.env`, documented in `.env.example`
+- [x] `ANTHROPIC_API_KEY` in `.env`, documented in `.env.example`
 
 **Front-ends**
 
-- [ ] `app.py` + `pages/` — Learn, Scan, Chat, Journal, Portfolio
-- [ ] `src/ask/panel.py` — the Ask panel: an expander on every page, agent chosen
+- [x] `app.py` + `pages/` — Learn, Scan, Chat, Journal, Portfolio
+- [x] `src/ask/panel.py` — the Ask panel: an expander on every page, agent chosen
       automatically for that page, context auto-scoped, history ephemeral
-- [ ] `pages/chat.py` — the Chat page: persistent threads, agent switcher, and a
+- [x] `pages/3_Chat.py` — the Chat page: persistent threads, agent switcher, and a
       context picker (multi-select over registered providers + the portfolio
       switcher). Shows exactly which blocks were sent — no invisible context.
 - [ ] `@ticker` / `#thesis` mentions in the chat box pull that provider in mid-thread
@@ -164,12 +164,16 @@ a working context-aware Ask panel on every other page. Later phases only add
 
 **Storage**
 
-- [ ] `src/store/db.py` — SQLite schema, plain SQL, migrations by hand.
+- [x] `src/store/db.py` — SQLite schema, plain SQL, migrations by hand.
       Phase 1 tables: `portfolios`, `positions`, `chat_threads`, `chat_messages`,
       `lesson_progress`. (Theses land in Phase 3.)
-- [ ] `chat_threads` stores agent id + provider selection, so reopening a thread
+- [x] `chat_threads` stores agent id + provider selection, so reopening a thread
       restores its context, not just its text
-- [ ] Smoke test: a Chat thread on each starter agent, and an Ask on each page
+- [x] Verified in the browser: portfolios seed, a transaction persists and holdings
+      derive from it, the Chat agent/context pickers work, and context is displayed
+      before it is sent.
+- [ ] **Still open:** one live API call, to confirm an answer streams and
+      `cache_read_input_tokens > 0`. Costs money, so it needs a deliberate run.
 
 ## Phase 2 — Learn
 
