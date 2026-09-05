@@ -204,24 +204,26 @@ be interrogated and immediately tried on a real company.
       Links only; no reproduced text.
 - [ ] Progress tracking: lesson read / Try-it completed
 
-## Phase 3 — Journal (the core)
+## Phase 3 — Journal (the core)  ✅ mostly shipped 2026-09-06
 
 Goal: a structured, versioned record of every investment idea.
 
-- [ ] Thesis record (SQLite, one row per version — append, never overwrite):
+- [x] Thesis record (SQLite, one row per version — append, never overwrite):
       `ticker`, `created_at`, `status` (watching / owned / passed / exited),
       `business_in_one_line`, `why_cheap`, `why_it_wont_stay_cheap`,
       `owner_earnings_estimate`, `fair_value_estimate`, `margin_of_safety_price`,
       `falsifiers` (list — "what would make me wrong"), `confidence` (1-5),
       `circle_of_competence` (bool + why), `sources` (URLs / filing sections)
-- [ ] A thesis belongs to a portfolio (or to none — an idea you're still weighing)
-- [ ] Guided thesis editor: one field at a time, glossary tooltips, drafts saved
-- [ ] **Critique my thesis** — hands the draft plus the company's numbers to the
+- [x] A thesis belongs to a portfolio (or to none — an idea you're still weighing)
+- [x] Guided thesis editor: one field at a time, glossary tooltips, drafts saved
+- [x] **Critique my thesis** — hands the draft plus the company's numbers to the
       Devil's Advocate. It scores nothing and recommends nothing.
-- [ ] Thesis history view: diff between versions, so changed minds stay visible
+- [x] Thesis history view — every version readable side by side.
+- [ ] A true field-by-field *diff* between versions is still to do
 - [ ] Filings tab per ticker via `edgartools`: latest 10-K/10-Q, Risk Factors and MD&A
-- [ ] Register `thesis` and `filing` context providers
-- [ ] Export a thesis to Markdown
+- [x] Registered the `thesis` context provider
+- [ ] `filing` provider — needs `edgartools` and your email as the SEC identity
+- [x] Export a thesis to Markdown
 
 ## Phase 4 — Scan (thin)
 

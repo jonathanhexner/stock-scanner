@@ -67,6 +67,41 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_msg_thread ON chat_messages(thread_id, created_at);
 
+CREATE TABLE IF NOT EXISTS theses (
+    id             TEXT PRIMARY KEY,
+    ticker         TEXT NOT NULL,
+    version        INTEGER NOT NULL,
+    portfolio_id   TEXT REFERENCES portfolios(id) ON DELETE SET NULL,
+    status         TEXT NOT NULL CHECK (status IN ('watching','owned','passed','exited')),
+    business       TEXT NOT NULL DEFAULT '',
+    why_cheap      TEXT NOT NULL DEFAULT '',
+    why_it_closes  TEXT NOT NULL DEFAULT '',
+    owner_earnings TEXT NOT NULL DEFAULT '',
+    fair_value     TEXT NOT NULL DEFAULT '',
+    mos_price      REAL,
+    confidence     INTEGER CHECK (confidence BETWEEN 1 AND 5),
+    in_circle      INTEGER NOT NULL DEFAULT 0,
+    circle_why     TEXT NOT NULL DEFAULT '',
+    sources        TEXT NOT NULL DEFAULT '[]',
+    note           TEXT NOT NULL DEFAULT '',
+    created_at     TEXT NOT NULL,
+    UNIQUE (ticker, version)
+);
+CREATE INDEX IF NOT EXISTS idx_thesis_ticker ON theses(ticker, version DESC);
+
+CREATE TABLE IF NOT EXISTS falsifiers (
+    id           TEXT PRIMARY KEY,
+    thesis_id    TEXT NOT NULL REFERENCES theses(id) ON DELETE CASCADE,
+    statement    TEXT NOT NULL,
+    metric       TEXT NOT NULL DEFAULT '',
+    comparator   TEXT NOT NULL DEFAULT '' CHECK (comparator IN ('', '<', '<=', '>', '>=')),
+    threshold    REAL,
+    tripped_at   TEXT,
+    tripped_note TEXT NOT NULL DEFAULT '',
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_falsifier_thesis ON falsifiers(thesis_id);
+
 CREATE TABLE IF NOT EXISTS lesson_progress (
     lesson_id TEXT PRIMARY KEY,
     read_at   TEXT,
@@ -265,3 +300,143 @@ def messages(conn: sqlite3.Connection, thread_id: str) -> list[dict]:
     return [
         {"role": r["role"], "content": r["content"], "usage": json.loads(r["usage"])} for r in rows
     ]
+
+
+# --- theses -------------------------------------------------------------------
+
+THESIS_STATUSES = ("watching", "owned", "passed", "exited")
+
+THESIS_FIELDS = (
+    "portfolio_id",
+    "status",
+    "business",
+    "why_cheap",
+    "why_it_closes",
+    "owner_earnings",
+    "fair_value",
+    "mos_price",
+    "confidence",
+    "in_circle",
+    "circle_why",
+    "sources",
+    "note",
+)
+
+
+def save_thesis(conn: sqlite3.Connection, ticker: str, **fields) -> str:
+    """Append a new version. Theses are never edited in place — a changed mind
+    is the record, not something to overwrite."""
+    status = fields.get("status", "watching")
+    if status not in THESIS_STATUSES:
+        raise ValueError(f"status {status!r} not one of {THESIS_STATUSES}")
+
+    unknown = set(fields) - set(THESIS_FIELDS)
+    if unknown:
+        raise ValueError(f"unknown thesis fields: {sorted(unknown)}")
+
+    ticker = ticker.upper()
+    row = conn.execute(
+        "SELECT MAX(version) AS v FROM theses WHERE ticker = ?", (ticker,)
+    ).fetchone()
+    version = (row["v"] or 0) + 1
+
+    values = {name: fields.get(name) for name in THESIS_FIELDS}
+    values["status"] = status
+    values["sources"] = json.dumps(fields.get("sources") or [])
+    values["in_circle"] = int(bool(fields.get("in_circle")))
+    for name in ("business", "why_cheap", "why_it_closes", "owner_earnings",
+                 "fair_value", "circle_why", "note"):
+        values[name] = values[name] or ""
+
+    thesis_id = new_id()
+    columns = ", ".join(THESIS_FIELDS)
+    placeholders = ", ".join("?" for _ in THESIS_FIELDS)
+    conn.execute(
+        f"INSERT INTO theses (id, ticker, version, {columns}, created_at)"
+        f" VALUES (?, ?, ?, {placeholders}, ?)",
+        (thesis_id, ticker, version, *[values[name] for name in THESIS_FIELDS], now()),
+    )
+    return thesis_id
+
+
+def _thesis_row(row: sqlite3.Row) -> dict:
+    thesis = dict(row)
+    thesis["sources"] = json.loads(thesis["sources"])
+    thesis["in_circle"] = bool(thesis["in_circle"])
+    return thesis
+
+
+def latest_thesis(conn: sqlite3.Connection, ticker: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM theses WHERE ticker = ? ORDER BY version DESC LIMIT 1",
+        (ticker.upper(),),
+    ).fetchone()
+    return _thesis_row(row) if row else None
+
+
+def thesis_versions(conn: sqlite3.Connection, ticker: str) -> list[dict]:
+    rows = conn.execute(
+        "SELECT * FROM theses WHERE ticker = ? ORDER BY version DESC", (ticker.upper(),)
+    ).fetchall()
+    return [_thesis_row(r) for r in rows]
+
+
+def list_theses(conn: sqlite3.Connection) -> list[dict]:
+    """Latest version per ticker."""
+    rows = conn.execute(
+        "SELECT * FROM theses WHERE (ticker, version) IN"
+        " (SELECT ticker, MAX(version) FROM theses GROUP BY ticker)"
+        " ORDER BY ticker"
+    ).fetchall()
+    return [_thesis_row(r) for r in rows]
+
+
+# --- falsifiers ---------------------------------------------------------------
+
+
+def add_falsifier(
+    conn: sqlite3.Connection,
+    thesis_id: str,
+    statement: str,
+    metric: str = "",
+    comparator: str = "",
+    threshold: float | None = None,
+) -> str:
+    if not statement.strip():
+        raise ValueError("a falsifier needs a statement")
+    falsifier_id = new_id()
+    conn.execute(
+        "INSERT INTO falsifiers"
+        " (id, thesis_id, statement, metric, comparator, threshold, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (falsifier_id, thesis_id, statement.strip(), metric, comparator, threshold, now()),
+    )
+    return falsifier_id
+
+
+def falsifiers(conn: sqlite3.Connection, thesis_id: str) -> list[dict]:
+    rows = conn.execute(
+        "SELECT * FROM falsifiers WHERE thesis_id = ? ORDER BY created_at, rowid",
+        (thesis_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def copy_falsifiers(conn: sqlite3.Connection, from_thesis_id: str, to_thesis_id: str) -> int:
+    """Carry falsifiers onto a new version. Without this, appending a version
+    would silently drop the thing that makes a thesis checkable."""
+    carried = 0
+    for f in falsifiers(conn, from_thesis_id):
+        add_falsifier(conn, to_thesis_id, f["statement"], f["metric"], f["comparator"],
+                      f["threshold"])
+        carried += 1
+    return carried
+
+
+def mark_falsifier_tripped(
+    conn: sqlite3.Connection, falsifier_id: str, note: str = ""
+) -> None:
+    conn.execute(
+        "UPDATE falsifiers SET tripped_at = ?, tripped_note = ? WHERE id = ?",
+        (now(), note, falsifier_id),
+    )

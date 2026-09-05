@@ -122,5 +122,68 @@ def _portfolio_block(selection: dict) -> ContextBlock | None:
     )
 
 
+# --- thesis -------------------------------------------------------------------
+
+
+def render_thesis(thesis: dict, falsifiers: list[dict]) -> str:
+    lines = [
+        f"# {thesis['ticker']} — thesis v{thesis['version']} ({thesis['status']})",
+        f"Business: {thesis['business'] or '(not written)'}",
+        f"Why cheap: {thesis['why_cheap'] or '(not written)'}",
+        f"Why the gap closes: {thesis['why_it_closes'] or '(not written)'}",
+        f"Owner earnings: {thesis['owner_earnings'] or '(not written)'}",
+        f"Fair value: {thesis['fair_value'] or '(not written)'}",
+    ]
+    if thesis["mos_price"] is not None:
+        lines.append(f"Margin-of-safety price: {thesis['mos_price']}")
+    if thesis["confidence"] is not None:
+        lines.append(f"Confidence: {thesis['confidence']}/5")
+    lines.append(
+        f"Circle of competence: {'yes' if thesis['in_circle'] else 'no'}"
+        + (f" — {thesis['circle_why']}" if thesis["circle_why"] else "")
+    )
+    if thesis["sources"]:
+        lines.append("Sources: " + "; ".join(thesis["sources"]))
+    if thesis["note"]:
+        lines.append(f"Note: {thesis['note']}")
+
+    lines.append("")
+    if falsifiers:
+        lines.append("Falsifiers — what would prove this wrong:")
+        for f in falsifiers:
+            mark = f" [TRIPPED {f['tripped_at']}: {f['tripped_note']}]" if f["tripped_at"] else ""
+            rule = ""
+            if f["metric"] and f["comparator"]:
+                rule = f" (rule: {f['metric']} {f['comparator']} {f['threshold']})"
+            lines.append(f"- {f['statement']}{rule}{mark}")
+    else:
+        lines.append(
+            "Falsifiers: NONE RECORDED. Nothing has been written down that could prove "
+            "this thesis wrong, so it cannot be checked later. Say so."
+        )
+
+    return "\n".join(lines)
+
+
+def _thesis_block(selection: dict) -> ContextBlock | None:
+    ticker = (selection.get("ticker") or "").upper()
+    if not ticker:
+        return None
+
+    with db.connect() as conn:
+        thesis = db.latest_thesis(conn, ticker)
+        if thesis is None:
+            return None
+        rules = db.falsifiers(conn, thesis["id"])
+
+    return ContextBlock(
+        provider_id="thesis",
+        label=f"Thesis: {ticker}",
+        body=render_thesis(thesis, rules),
+        priority=90,
+    )
+
+
 register(Provider("glossary", "Glossary", _glossary_block, priority=10))
+register(Provider("thesis", "Current thesis", _thesis_block, priority=90))
 register(Provider("portfolio", "My portfolios", _portfolio_block, priority=80))

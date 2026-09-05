@@ -11,6 +11,7 @@ import streamlit as st
 from src.ask import client
 from src.ask.agents import Agent, load_agents, load_preamble
 from src.ask.context import AskContext
+from src.ask.render import escaped_stream
 
 
 @st.cache_data(show_spinner=False)
@@ -53,7 +54,7 @@ def converse(
         stream = client.stream_answer(
             agent, _preamble(), fitted, history, question, on_usage=captured.update
         )
-        text = st.write_stream(stream)
+        text = st.write_stream(escaped_stream(stream))
     except client.MissingAPIKey as exc:
         st.error(str(exc))
         return "", {}

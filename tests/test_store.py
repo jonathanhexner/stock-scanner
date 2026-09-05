@@ -97,3 +97,29 @@ def test_message_role_is_constrained(conn):
 
     with pytest.raises(sqlite3.IntegrityError):
         db.add_message(conn, thread_id, "system", "sneaky")
+
+
+def test_init_db_is_idempotent(tmp_path):
+    path = tmp_path / "journal.sqlite"
+    db.init_db(path)
+    db.init_db(path)
+
+    with db.connect(path) as conn:
+        assert db.list_portfolios(conn) == []
+
+
+def test_init_db_adds_tables_missing_from_an_older_database(tmp_path):
+    """A schema change must reach a database that already exists — this is what
+    broke the Journal page the first time it was opened."""
+    path = tmp_path / "journal.sqlite"
+    with db.connect(path) as conn:
+        conn.executescript(
+            "CREATE TABLE portfolios (id TEXT PRIMARY KEY, name TEXT, kind TEXT,"
+            " base_currency TEXT, benchmark TEXT, notes TEXT, created_at TEXT);"
+        )
+
+    db.init_db(path)
+
+    with db.connect(path) as conn:
+        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    assert {"theses", "falsifiers", "chat_threads"} <= tables

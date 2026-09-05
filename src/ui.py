@@ -7,8 +7,13 @@ import streamlit as st
 from src.store import db
 
 
-@st.cache_resource
 def bootstrap() -> None:
+    """Run on every page load, deliberately uncached.
+
+    `CREATE TABLE IF NOT EXISTS` is cheap and idempotent, and caching it meant a
+    schema change did not reach a running server — a new table simply did not
+    exist until someone restarted Streamlit. Correctness beats the microseconds.
+    """
     db.init_db()
     with db.connect() as conn:
         db.seed_starter_portfolios(conn)
