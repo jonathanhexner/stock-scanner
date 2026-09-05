@@ -48,15 +48,15 @@ journal with falsifiers** — so that is the only thing we build properly.
 
 | Need | Project | License / stack | What we take |
 |---|---|---|---|
-| Ratios, valuation models | [JerBouma/FinanceToolkit](https://github.com/JerBouma/FinanceToolkit) | MIT · Python | 200+ ratios and models (ROIC, Altman Z, DuPont, DDM, WACC) written out transparently — **the formulas are readable, which is exactly what a learner needs**. Needs an FMP API key for statements. |
-| Value-investor scoring + agent personas | [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund) | MIT · Python | The Ben Graham / Buffett / Munger / Fisher analyst modules — each already encodes that investor's criteria as scoring functions. Port them as our Scan scoring **and** as Chat agent personas. **Strip the buy/sell/hold signal output** — that violates our no-advice rule. Its backtester is a Phase 6 reference. |
+| Ratios, valuation models, portfolio performance | [JerBouma/FinanceToolkit](https://github.com/JerBouma/FinanceToolkit) | MIT · Python | 200+ ratios and models written out transparently — the formulas are readable, which is what a learner needs. **Verified to run with no API key** via `enforce_source="YahooFinance"`. Its `Portfolio` module also does Phase 5's return/alpha/beta/benchmark maths from a plain DataFrame. |
+| Agent personas + LLM-layer architecture | [virattt/ai-hedge-fund](https://github.com/virattt/ai-hedge-fund) | MIT · Python | The Graham / Buffett / Munger / Lynch personas are **pure system prompts** on a shared `LLMAgent` base — port them as Chat agents, stripping the buy/sell signal. Take the architecture too: prompt caching keyed on (agent, model, system, user), and the failure contract (data errors propagate, LLM failures abstain). **Not a source of deterministic screening code** — see `docs/frameworks.md`. |
 | Filings | [dgunning/edgartools](https://github.com/dgunning/edgartools) | MIT · Python | 10-K/10-Q retrieval + section extraction (Risk Factors, MD&A) |
-| Prices / quotes | `yfinance` (+ FMP or [Financial Datasets](https://financialdatasets.ai) if yfinance fundamentals prove thin) | Apache-2.0 · Python | all price and basic fundamental data |
+| Prices / quotes | `yfinance`, reached through FinanceToolkit | Apache-2.0 · Python | prices and fundamentals. No paid data provider and no API key — verified. |
 | Broader data layer, if the above gets painful | [OpenBB](https://github.com/OpenBB-finance/OpenBB) Open Data Platform | **AGPL** · Python | one interface over many providers. Fine for personal local use; AGPL matters only if this is ever offered as a service. Heavy — adopt only when a concrete need appears. |
 | Portfolio tracking + LLM chat on holdings | [investbrainapp/investbrain](https://github.com/investbrainapp/investbrain) | **CC-BY-NC** · Laravel/PHP | Already does multi-portfolio + an AI assistant grounded on holdings. Wrong stack to fork, non-commercial licence — **use it as the design reference** for the portfolio data model and the grounded-chat UX. Worth running once to see what good looks like. |
 | Portfolio data model, importers | [ghostfolio/ghostfolio](https://github.com/ghostfolio/ghostfolio) | AGPL · TS | positions/activities schema, transaction import formats, benchmark comparison — as a reference, not a dependency |
 | Learning content | [romainsimon/awesome-investing](https://github.com/romainsimon/awesome-investing) (free 14-lesson course), [Pamir/awesome-value-investment](https://github.com/Pamir/awesome-value-investment), [mr-karan/awesome-investing](https://github.com/mr-karan/awesome-investing), Damodaran's free NYU lectures + spreadsheets | curated links | **Curate, don't author.** Link out to existing lessons; we write only the connective tissue and the "try it on a real ticker" exercises. Never copy text from books or paid courses. |
-| Indicators / charts / UI / storage | `pandas_ta`, `plotly`, `streamlit`, SQLite | — | no custom indicator math, no web frontend, no ORM |
+| Indicators / charts / UI / storage | `ta` or a live `pandas-ta` fork, `plotly`, `streamlit`, SQLite | — | no custom indicator math, no web frontend, no ORM. NB: `pandas-ta` is unmaintained and no longer installable. |
 | Ask / Chat | `anthropic` Python SDK, `claude-opus-5` | — | no RAG stack, no agent framework, no custom streaming layer |
 
 ### Reuse from Jonathan's existing work
@@ -79,18 +79,26 @@ Only these. Everything else is glue.
 4. The **calibration view**: Real vs. Paper vs. Passed — was I right, and for the
    reason I thought?
 
-### Phase 0 — spike before building (do this first)
+### Phase 0 — spike (done, 2026-09-05)
 
-- [ ] Run `investbrain` locally for an hour. Decide: does it replace our Portfolio
-      surface outright (and we build the journal beside it), or is it reference only?
-- [ ] Clone `ai-hedge-fund`, run its Graham and Buffett agents on 3 tickers. Decide
-      what to port and confirm the licence attribution we owe (MIT — keep the notice).
-- [ ] Try `FinanceToolkit` against a free FMP key on one ticker; confirm the ratios
-      we need are there before writing any of our own.
-- [ ] Skim the awesome-investing lesson list; pick the 8-10 lessons worth linking to,
-      and note the gaps we have to write ourselves.
-- [ ] Record the outcome at the top of this file. If a project turns out to cover a
-      whole phase, delete that phase.
+Candidates were cloned and run. Full survey and compatibility ratings:
+**[docs/frameworks.md](docs/frameworks.md)**. What it changed:
+
+- [x] **FinanceToolkit runs with no API key** (`enforce_source="YahooFinance"`).
+      Verified on KO. No FMP signup, no separate fundamentals provider.
+- [x] **ai-hedge-fund has no deterministic scoring to port** — the investor
+      personas are pure system prompts. It moves from Phase 4 to Phase 1: we take
+      the prompts and the LLM-layer architecture (prompt cache, abstain-on-failure).
+- [x] **FinanceToolkit's `Portfolio` module does Phase 5's maths** from a plain
+      DataFrame — return, benchmark, volatility, alpha, beta, weights. Verified.
+      Gotchas: the ticker column must be named `Identifier`, and a missing
+      `Currency` column silently defaults to EUR.
+- [x] **edgartools 5.56 imports clean**, XBRL included. Needs `set_identity(<your
+      email>)` for live SEC calls — a config step, not a dependency.
+- [x] **investbrain has no thesis table.** Nor does anything else found. The
+      journal is confirmed as the gap worth building.
+- [ ] Still open: pick the 8-10 lessons worth linking to from awesome-investing,
+      and note which gaps we have to write ourselves. (Phase 2.)
 
 ---
 
@@ -119,9 +127,10 @@ a working context-aware Ask panel on every other page. Later phases only add
       "ground answers in supplied context, say when a number isn't there", and
       "Jonathan is learning — build the mental model, don't hand over conclusions"
 - [ ] `src/ask/agents.py` — load, validate, hot-reload on file change
-- [ ] Starter roster. Seed the investor personas from `ai-hedge-fund`'s analyst
-      modules (MIT — keep the notice), rewritten to explain and question rather
-      than to emit a signal:
+- [ ] Starter roster. Seed the investor personas from `ai-hedge-fund`'s prompts
+      (MIT — keep the notice), rewritten to explain and question rather than to
+      emit a signal. Take its prompt cache too — key on (agent, model, system,
+      user) so an unchanged snapshot never pays for a second call:
   - **Tutor** — explains concepts from first principles, beginner-friendly
   - **Analyst** — pulls and explains one company's numbers and filings
   - **Graham** / **Buffett** — applies that investor's documented criteria to a
@@ -216,11 +225,12 @@ Goal: a candidate list that hands you into the journal. Deliberately dumb.
 - [ ] `config/universes/*.csv` — screener exports dropped in by hand
 - [ ] `src/data/fetcher.py` + `src/data/cache.py` — yfinance fetch, Parquet cache
       (fundamentals 24h, prices 1h)
-- [ ] Ratios come from `FinanceToolkit` — do not implement a single formula ourselves
-- [ ] `src/screening/value.py` — **ported from `ai-hedge-fund`'s Graham/Buffett analyst
-      modules**, not written fresh. Returns pass/fail **with reasons and the numbers
-      behind them**; a rough sort, not a ranking that pretends to be precise. The
-      buy/sell signal at the end of the originals is removed.
+- [ ] Ratios come from `FinanceToolkit` (`enforce_source="YahooFinance"`, no key) —
+      do not implement a single formula ourselves
+- [ ] `src/screening/value.py` — thresholds applied to those ratios. Written by us:
+      the spike found no deterministic value-screening code worth porting. Returns
+      pass/fail **with reasons and the numbers behind them**; a rough sort, not a
+      ranking that pretends to be precise.
 - [ ] `config/value_criteria.yaml` — thresholds surfaced as config so they're tunable
 - [ ] Scan page: table with per-row "Ask about this company" and **"Start a thesis"**
 - [ ] Candidate detail view: fundamentals + price chart (plotly, `pandas_ta`)
@@ -241,7 +251,10 @@ ideas, and the ones you passed on.
 - [ ] Positions table per portfolio: ticker, shares, cost basis, date, and a link
       to the thesis version that justified the buy. Hand-entered; no brokerage
       integration.
-- [ ] Performance vs. each portfolio's benchmark from entry dates
+- [ ] Performance vs. each portfolio's benchmark from entry dates — hand the
+      transactions to `FinanceToolkit`'s `Portfolio` as a DataFrame and read back
+      return, alpha, beta, volatility and weights. Column must be `Identifier`;
+      always set `Currency` or it silently assumes EUR.
 - [ ] **Compare view** — Real vs. Paper vs. Passed vs. benchmark. Did the ideas you
       skipped beat the ones you bought?
 - [ ] The `portfolio` context provider becomes real: the Portfolio Reviewer agent
