@@ -80,3 +80,37 @@ def test_missing_api_key_fails_before_any_network_call(monkeypatch):
                 question="q",
             )
         )
+
+
+class _Usage:
+    input_tokens = 1234
+    output_tokens = 56
+    cache_creation_input_tokens = 900
+    cache_read_input_tokens = 800
+
+
+def test_usage_dict_extracts_the_cache_fields():
+    from src.ask.client import usage_dict
+
+    assert usage_dict(_Usage()) == {
+        "input_tokens": 1234,
+        "output_tokens": 56,
+        "cache_creation_input_tokens": 900,
+        "cache_read_input_tokens": 800,
+    }
+
+
+def test_usage_dict_tolerates_a_response_without_usage():
+    from src.ask.client import usage_dict
+
+    assert usage_dict(None) == {}
+
+
+def test_usage_dict_defaults_missing_cache_fields_to_zero():
+    from src.ask.client import usage_dict
+
+    class Partial:
+        input_tokens = 10
+        output_tokens = 2
+
+    assert usage_dict(Partial())["cache_read_input_tokens"] == 0

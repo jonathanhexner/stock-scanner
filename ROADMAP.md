@@ -146,7 +146,8 @@ a working context-aware Ask panel on every other page. Later phases only add
       `client.messages.stream(...)` + `.get_final_message()`, `max_tokens=64000`.
       Per-agent `output_config={"effort": ...}` — `low` for glossary lookups,
       `high`/`xhigh` for thesis critique.
-- [x] Prompt caching (breakpoint in place; cache_read not yet observed live): preamble + agent prompt + glossary + lesson corpus are the
+- [x] Prompt caching — **verified live: 669 of 821 input tokens read from cache** on the second question to the same agent. Usage is persisted per message.
+- [x] Superseded note: preamble + agent prompt + glossary + lesson corpus are the
       stable prefix (`cache_control`); selected context and the question come last.
       Verify `usage.cache_read_input_tokens > 0`.
 - [x] `ANTHROPIC_API_KEY` in `.env`, documented in `.env.example`
@@ -172,8 +173,8 @@ a working context-aware Ask panel on every other page. Later phases only add
 - [x] Verified in the browser: portfolios seed, a transaction persists and holdings
       derive from it, the Chat agent/context pickers work, and context is displayed
       before it is sent.
-- [ ] **Still open:** one live API call, to confirm an answer streams and
-      `cache_read_input_tokens > 0`. Costs money, so it needs a deliberate run.
+- [x] Live call verified: the answer streamed, was grounded in the actual
+      holding (KO, 50 units at 60.00), and gave no advice.
 
 ## Phase 2 — Learn
 

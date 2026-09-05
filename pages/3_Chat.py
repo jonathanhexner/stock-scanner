@@ -99,10 +99,10 @@ with right:
     with st.chat_message("user"):
         st.markdown(question)
     with st.chat_message("assistant"):
-        answer = converse(agent_id, context, history, question)
+        answer, usage = converse(agent_id, context, history, question)
 
 if answer:
     with db.connect() as conn:
-        db.add_message(conn, thread_id, "assistant", answer, agent_id=agent_id)
+        db.add_message(conn, thread_id, "assistant", answer, agent_id=agent_id, usage=usage)
 
 st.rerun()

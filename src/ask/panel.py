@@ -43,17 +43,27 @@ def converse(
     context: AskContext,
     history: list[dict],
     question: str,
-) -> str:
-    """Stream one answer into the page and return the full text."""
+) -> tuple[str, dict]:
+    """Stream one answer into the page. Returns (text, usage)."""
     agent = agents()[agent_id]
     fitted = context.fit()
+    captured: dict = {}
 
     try:
-        stream = client.stream_answer(agent, _preamble(), fitted, history, question)
-        return st.write_stream(stream)
+        stream = client.stream_answer(
+            agent, _preamble(), fitted, history, question, on_usage=captured.update
+        )
+        text = st.write_stream(stream)
     except client.MissingAPIKey as exc:
         st.error(str(exc))
-        return ""
+        return "", {}
+
+    if captured.get("cache_read_input_tokens"):
+        st.caption(
+            f"{captured['cache_read_input_tokens']:,} tokens read from cache · "
+            f"{captured.get('output_tokens', 0):,} out"
+        )
+    return text, captured
 
 
 def ask_panel(page: str, context: AskContext, agent_id: str = "tutor") -> None:
@@ -77,7 +87,7 @@ def ask_panel(page: str, context: AskContext, agent_id: str = "tutor") -> None:
             st.markdown(question)
 
         with st.chat_message("assistant"):
-            answer = converse(agent_id, context, history[:-1], question)
+            answer, _usage = converse(agent_id, context, history[:-1], question)
 
         if answer:
             history.append({"role": "assistant", "content": answer})

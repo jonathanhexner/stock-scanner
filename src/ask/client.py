@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from src.ask.agents import Agent
@@ -78,12 +78,29 @@ def _client():
     return Anthropic()
 
 
+def usage_dict(usage) -> dict[str, int]:
+    """The fields we care about, as plain ints. `cache_read` is how we know
+    prompt caching is actually working rather than merely configured."""
+    if usage is None:
+        return {}
+    return {
+        field: int(getattr(usage, field, 0) or 0)
+        for field in (
+            "input_tokens",
+            "output_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+        )
+    }
+
+
 def stream_answer(
     agent: Agent,
     preamble: str,
     context: AskContext,
     history: list[dict],
     question: str,
+    on_usage: Callable[[dict], None] | None = None,
 ) -> Iterator[str]:
     """Yield answer text as it arrives. Raises MissingAPIKey before any network call."""
     request = build_request(agent, preamble, context, history, question)
@@ -93,12 +110,7 @@ def stream_answer(
         yield from stream.text_stream
         final = stream.get_final_message()
 
-    usage = getattr(final, "usage", None)
-    if usage is not None:
-        logger.info(
-            "ask agent=%s in=%s cached=%s out=%s",
-            agent.id,
-            getattr(usage, "input_tokens", "?"),
-            getattr(usage, "cache_read_input_tokens", "?"),
-            getattr(usage, "output_tokens", "?"),
-        )
+    usage = usage_dict(getattr(final, "usage", None))
+    logger.info("ask agent=%s %s", agent.id, usage)
+    if on_usage is not None:
+        on_usage(usage)
