@@ -1,0 +1,24 @@
+# Starter watchlist. Add or replace with your own tickers.
+# For Phase 1 keep this small (~20) so iteration is fast.
+
+tickers:
+  - AAPL
+  - MSFT
+  - GOOGL
+  - BRK-B
+  - JNJ
+  - JPM
+  - V
+  - PG
+  - KO
+  - PEP
+  - WMT
+  - HD
+  - MA
+  - UNH
+  - XOM
+  - CVX
+  - MRK
+  - ABBV
+  - LLY
+  - COST

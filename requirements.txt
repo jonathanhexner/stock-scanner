@@ -1,0 +1,24 @@
+yfinance>=0.2.40
+pandas>=2.2
+numpy>=1.26
+pandas-ta>=0.3.14b0
+plotly>=5.20
+streamlit>=1.35
+pyyaml>=6.0
+python-dotenv>=1.0
+requests>=2.31
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# dev
+pytest>=8.0
+
+# ask layer
+anthropic>=0.40
+
+# filings
+edgartools>=3.0
+
+# ratios + valuation models (do not reimplement these)
+financetoolkit>=1.9
+ruff>=0.6
