@@ -1,24 +1,21 @@
-yfinance>=0.2.40
-pandas>=2.2
-numpy>=1.26
-pandas-ta>=0.3.14b0
-plotly>=5.20
+# Only what the current phases use. Add a dependency when the phase that needs
+# it starts, not before — see ROADMAP.md.
+
+# app + config
 streamlit>=1.35
 pyyaml>=6.0
 python-dotenv>=1.0
-requests>=2.31
-pydantic>=2.6
-pydantic-settings>=2.2
+pandas>=2.2
 
-# dev
-pytest>=8.0
-
-# ask layer
+# ask / chat
 anthropic>=0.40
 
-# filings
-edgartools>=3.0
+# charts
+plotly>=5.20
 
-# ratios + valuation models (do not reimplement these)
-financetoolkit>=1.9
-ruff>=0.6
+# Phase 3 (journal): edgartools        — filings retrieval
+# Phase 4 (scan):    yfinance          — prices and basic fundamentals
+# Phase 4 (scan):    financetoolkit    — ratios and valuation models
+# Phase 4 (scan):    ta or pandas-ta-classic — indicators. NB: `pandas-ta` is
+#   unmaintained and no longer installable; pick a live fork when we get there.
+# Phase 6 (audio):   edge-tts or piper-tts
